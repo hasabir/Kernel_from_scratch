@@ -1,16 +1,33 @@
 ENTRY(start)
 
-SECTIONS {
+SECTIONS
+{
     . = 1M;
 
-    .boot :
+    /* Read-only code section */
+    .text BLOCK(4K) : ALIGN(4K)
     {
-        /* ensure that the multiboot header is at the beginning */
         *(.multiboot_header)
+        *(.multiboot)
+        *(.text)
     }
 
-    .text :
+    /* Read-only data section */
+    .rodata BLOCK(4K) : ALIGN(4K)
     {
-        *(.text)
+        *(.rodata)
+    }
+
+    /* Read-write data section */
+    .data BLOCK(4K) : ALIGN(4K)
+    {
+        *(.data)
+    }
+
+    /* Read-write uninitialized data */
+    .bss BLOCK(4K) : ALIGN(4K)
+    {
+        *(COMMON)
+        *(.bss)
     }
 }

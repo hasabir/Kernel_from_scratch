@@ -1,10 +1,25 @@
 global start
+extern kernel_main
 
 section .text
 bits 32
 start:
-    ; print `OK` to screen
-    mov dword [0xb8000], 0x2f4b2f4f
+    ; Set up stack
+    mov esp, stack_top
+    
+    ; Call kernel main function
+    call kernel_main
+    
+    ; Halt if kernel_main returns
+    cli
+.hang:
     hlt
+    jmp .hang
 
+section .bss
+align 4096
+stack_bottom:
+    resb 16384  ; 16KB stack
+stack_top:
 
+section .note.GNU-stack noalloc noexec nowrite progbits
