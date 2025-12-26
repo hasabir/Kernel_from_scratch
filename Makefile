@@ -1,138 +1,76 @@
+# Makefile for KFS_1
 
-# Architecture must be i386 per subject requirements
-arch ?= i386
-kernel := build/kernel-$(arch).bin
-iso := build/os-$(arch).iso
+# Tools
+AS = nasm
+CC = gcc
+LD = ld
+
+# Flags
+ASFLAGS = -f elf32
+CFLAGS = -m32 -ffreestanding -fno-builtin -fno-exceptions \
+         -fno-stack-protector -nostdlib -nodefaultlibs \
+         -Wall -Wextra -O2
+LDFLAGS = -m elf_i386 -T linker.ld
+
+# Output files
+KERNEL = kernel.bin
+ISO = kfs_1.iso
 
 # Source files
-asm_sources := boot.asm multiboot_header.asm
-asm_objects := $(patsubst %.asm, build/%.o, $(asm_sources))
+ASM_SRC = boot/boot.s
+C_SRC = kernel/kernel.c kernel/vga.c lib/keyboard.c lib/keyboadEntries.c lib/printk.c
 
-c_sources := kernel.c vga.c
-c_objects := $(patsubst %.c, build/%.o, $(c_sources))
+# Object files
+ASM_OBJ = $(ASM_SRC:.s=.o)
+C_OBJ = $(C_SRC:.c=.o)
+OBJ = $(ASM_OBJ) $(C_OBJ)
 
-all_objects := $(asm_objects) $(c_objects)
+# Default target
+all: $(ISO)
 
-# Compiler flags as per subject
-CFLAGS := -m32 -nostdlib -nodefaultlibs -fno-builtin -fno-exceptions \
-          -fno-stack-protector -nostartfiles -nodefaultlibs -Wall -Wextra
-
-# Linker flags
-LDFLAGS := -m elf_i386 -n -T linker.ld --nmagic
-LDFLAGS := -m elf_i386 -n -T linker.ld -z noexecstack
-.PHONY: all clean run iso
-
-all: $(kernel)
-
-clean:
-	@rm -rf build
-
-run: $(iso)
-	@qemu-system-i386 -cdrom $(iso)
-
-iso: $(iso)
-
-$(iso): $(kernel) grub.cfg
-	@mkdir -p build/isofiles/boot/grub
-	@cp $(kernel) build/isofiles/boot/kernel.bin
-	@cp grub.cfg build/isofiles/boot/grub
-	@grub-mkrescue -o $(iso) build/isofiles 2> /dev/null
-	@rm -rf build/isofiles
-	@echo "ISO created: $(iso)"
-
-$(kernel): $(all_objects) linker.ld
-	@mkdir -p $(shell dirname $@)
-	@ld $(LDFLAGS) -o $(kernel) $(all_objects)
-	@echo "Kernel linked: $(kernel)"
-
-# Compile assembly files
-build/%.o: %.asm
-	@mkdir -p $(shell dirname $@)
-	@nasm -f elf32 $< -o $@
-	@echo "Assembled: $<"
+# Compile ASM files
+boot/%.o: boot/%.s
+	@echo "Assembling $<..."
+	@$(AS) $(ASFLAGS) $< -o $@
 
 # Compile C files
-build/%.o: %.c
-	@mkdir -p $(shell dirname $@)
-	@gcc $(CFLAGS) -c $< -o $@
-	@echo "Compiled: $<"
+kernel/%.o: kernel/%.c
+	@echo "Compiling $<..."
+	@$(CC) $(CFLAGS) -c $< -o $@
 
-re: clean all run
-	
+# Link kernel
+$(KERNEL): $(OBJ)
+	@echo "Linking kernel..."
+	@$(LD) $(LDFLAGS) -o $@ $^
+	@echo "Kernel binary created: $(KERNEL)"
 
+# Create bootable ISO with GRUB
+$(ISO): $(KERNEL)
+	@echo "Creating ISO image..."
+	@mkdir -p iso/boot/grub
+	@cp $(KERNEL) iso/boot/
+	@cp grub.cfg iso/boot/grub/
+	@grub-mkrescue -o $(ISO) iso \
+	--compress=xz 2>/dev/null
+	@rm -rf iso
+	@echo "ISO created: $(ISO)"
 
+# Run in QEMU
+run: $(ISO)
+	@echo "Starting QEMU..."
+	@qemu-system-i386 -cdrom $(ISO)
 
+# Clean object files and kernel
+clean:
+	@echo "Cleaning..."
+	@rm -f $(OBJ) $(KERNEL)
+	@rm -rf iso
 
+# Clean everything including ISO
+fclean: clean
+	@rm -f $(ISO)
 
+# Rebuild everything
+re: fclean all
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# # Architecture must be i386 per subject requirements
-# arch ?= i386
-# kernel := build/kernel-$(arch).bin
-# iso := build/os-$(arch).iso
-
-# # Source files
-# asm_sources := boot.asm multiboot_header.asm
-# asm_objects := $(patsubst %.asm, build/%.o, $(asm_sources))
-
-# c_sources := kernel.c vga.c
-# c_objects := $(patsubst %.c, build/%.o, $(c_sources))
-
-# all_objects := $(asm_objects) $(c_objects)
-
-# # Compiler flags as per subject
-# CFLAGS := -m32 -nostdlib -nodefaultlibs -fno-builtin -fno-exceptions \
-#           -fno-stack-protector -nostartfiles -nodefaultlibs -Wall -Wextra
-
-# # Linker flags
-# LDFLAGS := -m elf_i386 -n -T linker.ld
-
-# .PHONY: all clean run iso
-
-# all: $(kernel)
-
-# clean:
-# 	@rm -rf build
-
-# run: $(iso)
-# 	@qemu-system-i386 -cdrom $(iso)
-
-# iso: $(iso)
-
-# $(iso): $(kernel) grub.cfg
-# 	@mkdir -p build/isofiles/boot/grub
-# 	@cp $(kernel) build/isofiles/boot/kernel.bin
-# 	@cp grub.cfg build/isofiles/boot/grub
-# 	@grub-mkrescue -o $(iso) build/isofiles 2> /dev/null
-# 	@rm -rf build/isofiles
-# 	@echo "ISO created: $(iso)"
-
-# $(kernel): $(all_objects) linker.ld
-# 	@mkdir -p $(shell dirname $@)
-# 	@ld $(LDFLAGS) -o $(kernel) $(all_objects)
-# 	@echo "Kernel linked: $(kernel)"
-
-# # Compile assembly files
-# build/%.o: %.asm
-# 	@mkdir -p $(shell dirname $@)
-# 	@nasm -f elf32 $< -o $@
-# 	@echo "Assembled: $<"
-
-# # Compile C files
-# build/%.o: %.c
-# 	@mkdir -p $(shell dirname $@)
-# 	@gcc $(CFLAGS) -c $< -o $@
-# 	@echo "Compiled: $<"
+.PHONY: all run clean fclean re

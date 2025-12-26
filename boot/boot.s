@@ -14,4 +14,20 @@ header_start:
 header_end:
 
 
+
+section .bss
+stack_bottom:
+    resb 16384
+stack_top:
+
+section .text
+extern kernel_main
+
+_start:
+    ; Set up stack pointer
+    mov esp, stack_top
+    
+    ; Call C kernel main function
+    call kernel_main
+    
 section .note.GNU-stack noalloc noexec nowrite progbits
